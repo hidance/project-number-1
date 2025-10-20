@@ -1,0 +1,86 @@
+|--------------------------|
+|=== syslog на роутерах ===|
+|--------------------------|
+
+conf t
+hostname R1-Kyiv
+service timestamps log datetime msec
+logging trap informational
+service sequence-numbers
+logging origin-id hostname
+logging source-interface FastEthernet0/0
+end
+```
+
+**Пояснення:**
+
+* `hostname R1-Kyiv` — задає унікальне ім’я (важливо для ідентифікації).
+* `logging origin-id hostname` — змушує IOS вставляти hostname у syslog-запис (якщо підтримується твоєю версією IOS).
+* `service timestamps` — додає дату/час (вже є, але краще мати завжди).
+* `service sequence-numbers` — додає унікальні номери (для діагностики).
+(або `GigabitEthernet0/0` — залежить від твоєї топології)
+Це дасть можливість серверу бачити “правильний” IP, якщо є кілька.
+
+
+
+ Дозволь прийоми ззовні(файрфол):
+sudo ufw allow 514/udp
+sudo ufw allow 514/tcp
+
+⚙️ Додаткові параметри
+| Команда                                       | Опис                                                                    |
+| --------------------------------------------- | ----------------------------------------------------------------------- |
+| `logging facility local7`                     | Вибір "каналу" (facility) — корисно, якщо в тебе кілька типів пристроїв |
+| `logging source-interface GigabitEthernet0/0` | Вказує, з якого інтерфейсу надсилати syslog                             |
+| `logging buffered 16384 informational`        | Зберігати копію логів локально (у RAM)                                  |
+| `logging console warnings`                    | Виводити лише важливі повідомлення на консоль                           |
+| `no logging console`                          | Вимкнути консольне логування, щоб не заважало                           |
+| `logging trap debugging`                      | Найвищий рівень деталізації (debug, info, warning, error тощо)          |
+
+
+hostname R1
+service timestamps log datetime msec
+service sequence-numbers
+
+logging on
+logging source-interface GigabitEthernet0/0
+logging host 203.0.113.10 transport udp port 514
+logging trap informational
+logging facility local7
+logging origin-id hostname
+logging buffered 16384 informational
+
+
+
+!!! ## Рівні логування (severity levels):
+
+- **0 - emergencies** - система непрацездатна
+- **1 - alerts** - негайна дія потрібна
+- **2 - critical** - критичні умови
+- **3 - errors** - помилки
+- **4 - warnings** - попередження
+- **5 - notifications** - нормальні але значущі події
+- **6 - informational** - інформаційні повідомлення (рекомендую)
+- **7 - debugging** - debug повідомлення (дуже багато логів!)
+
+## Додаткові корисні налаштування:
+```
+! Логувати зміни конфігурації
+archive
+ log config
+  logging enable
+  notify syslog contenttype plaintext
+  
+! Логувати AAA події (аутентифікація)
+aaa accounting exec default start-stop group tacacs+
+aaa accounting commands 15 default start-stop group tacacs+
+
+! Встановити часову зону (наприклад, для України)
+clock timezone EET 2
+clock summer-time EEST recurring last Sun Mar 3:00 last Sun Oct 4:00
+```
+
+## Перевірка:
+```
+! Подивитися поточну конфігурацію логування
+show logging
